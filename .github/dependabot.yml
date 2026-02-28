@@ -2,6 +2,7 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    schedule: monthly
     versioning-strategy: increase-if-necessary
     groups:
       lint:
