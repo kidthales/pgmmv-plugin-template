@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    versioning-strategy: increase-if-necessary
+    groups:
+      lint:
+        patterns:
+          - '@eslint/eslintrc'
+          - '@typescript-eslint/*'
+          - eslint
+          - eslint-config-prettier
+          - eslint-plugin-prettier
+          - prettier
