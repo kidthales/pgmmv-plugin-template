@@ -2,12 +2,22 @@ const js = require('@eslint/js');
 const eslintPluginPrettierRecommended = require('eslint-plugin-prettier/recommended');
 
 module.exports = [
+  {
+    ignores: ['dist/**', '.ci-local/**']
+  },
   js.configs.recommended,
   eslintPluginPrettierRecommended,
   {
     files: ['eslint.config.js'],
     languageOptions: {
       sourceType: 'commonjs'
+    }
+  },
+  {
+    files: ['tests/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module'
     }
   },
   {

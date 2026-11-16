@@ -1,5 +1,5 @@
 // noinspection ES6ConvertVarToLetConst
-/// <reference path="./node_modules/@kidthales/pgmmv-types/pgmmv.d.ts" />
+/// <reference types="@kidthales/pgmmv-types/pgmmv.d.ts" />
 (function () {
   // noinspection UnnecessaryLocalVariableJS
   /**
@@ -120,7 +120,7 @@
      * @returns {boolean}
      */
     isEditor = function () {
-      return !Agtk || typeof Agtk.log !== 'function';
+      return typeof Agtk === 'undefined' || !Agtk || typeof Agtk.log !== 'function';
     };
 
   return plugin;
