@@ -1,20 +1,28 @@
-const { FlatCompat } = require('@eslint/eslintrc');
-
-const compat = new FlatCompat({ recommendedConfig: {} });
+const js = require('@eslint/js');
+const eslintPluginPrettierRecommended = require('eslint-plugin-prettier/recommended');
 
 module.exports = [
-  ...compat.config({
-    extends: ['eslint:recommended', 'plugin:prettier/recommended'],
-    ignorePatterns: [],
-    overrides: [
-      {
-        files: ['plugin.js'],
-        extends: ['eslint:recommended', 'plugin:prettier/recommended', 'plugin:es5/no-es2015'],
-        parserOptions: {
-          ecmaVersion: 5,
-          sourceType: 'script'
-        }
+  js.configs.recommended,
+  eslintPluginPrettierRecommended,
+  {
+    files: ['eslint.config.js'],
+    languageOptions: {
+      sourceType: 'commonjs'
+    }
+  },
+  {
+    files: ['plugin.js'],
+    languageOptions: {
+      ecmaVersion: 5,
+      sourceType: 'script',
+      globals: {
+        Agtk: 'readonly',
+        cc: 'readonly',
+        jsb: 'readonly'
       }
-    ]
-  })
+    },
+    rules: {
+      'no-unused-vars': ['error', { args: 'none' }]
+    }
+  }
 ];
