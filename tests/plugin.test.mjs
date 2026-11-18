@@ -429,6 +429,123 @@ test('stripComments still rescans regex literals after for-of, async await, and 
   assert.doesNotMatch(output, /don't leak/);
 });
 
+test('stripComments and buildPlugin handle statement-header regexes, prefix/postfix ++/--, and expression braces', async () => {
+  const input = [
+    'if (cond) /[//]/.test(s);',
+    'var x = 1;',
+    'if (cond) /[/*]/.test(s) && /[*/]/.test(s);',
+    'while (cond) /[//]/.test(s);',
+    'for (var i = 0; i < 1; i++) /[/*]/.test(s) && /[*/]/.test(s);',
+    'with (obj) /[//]/.test(s);',
+    'var callDiv = obj.if(cond) / 2; /* strip */',
+    'var optCallDiv = obj?.while(cond) / 2; /* strip */',
+    'var n = ++/[//]/.lastIndex;',
+    'var y = 1;',
+    'var sum = ++/[/*]/.lastIndex + --/[*/]/.lastIndex;',
+    'a',
+    '++/[//]/.lastIndex;',
+    'a /*',
+    '*/ --/[//]/.lastIndex;',
+    '{ foo(); } ++/[//]/.lastIndex;',
+    'if (cond) ++/[//]/.lastIndex;',
+    'var postA = a++ / 2; /* strip */',
+    'var postB = arr[i]-- / 2; /* strip */',
+    'var postC = obj.default++ / 2; /* strip */',
+    'var objDiv = { a: 1 } / 2; /* strip */',
+    'var fnDiv = function () {} / 2; /* strip */',
+    'var asyncFnDiv = async function () {} / 2; /* strip */',
+    'var clsDiv = class {} / 2; /* strip */',
+    'var ternDiv = cond ? { a: 1 } : { b: 2 } / 2; /* strip */',
+    'var nestedObjDiv = { a: { b: 1 } / 2 }; /* strip */',
+    'if (cond) { foo(); } /[//]/.test(s);',
+    'function decl() {} /[/*]/.test(s) && /[*/]/.test(s);',
+    'class Decl {} /[//]/.test(s);',
+    'lbl: { foo(); } /[//]/.test(s);',
+    'switch (v) { case 1: { foo(); } /[//]/.test(s); }',
+    'const arrowBlock = () => {}',
+    '/[//]/.test(s);'
+  ].join('\n');
+
+  const output = stripComments(input);
+  assert.doesNotMatch(output, /\/\* strip \*\//);
+  assert.match(output, /if \(cond\) \/\[\/\/\]\/\.test\(s\);/);
+  assert.match(output, /if \(cond\) \/\[\/\*\]\/\.test\(s\) && \/\[(\*\/)\]\/\.test\(s\);/);
+  assert.match(output, /while \(cond\) \/\[\/\/\]\/\.test\(s\);/);
+  assert.match(output, /for \(var i = 0; i < 1; i\+\+\) \/\[\/\*\]\/\.test\(s\) && \/\[(\*\/)\]\/\.test\(s\);/);
+  assert.match(output, /with \(obj\) \/\[\/\/\]\/\.test\(s\);/);
+  assert.match(output, /var n = \+\+\/\[\/\/\]\/\.lastIndex;/);
+  assert.match(output, /var sum = \+\+\/\[\/\*\]\/\.lastIndex \+ --\/\[(\*\/)\]\/\.lastIndex;/);
+  assert.match(output, /a\n\+\+\/\[\/\/\]\/\.lastIndex;/);
+  assert.match(output, /--\/\[\/\/\]\/\.lastIndex;/);
+  assert.match(output, /\{ foo\(\); \} \+\+\/\[\/\/\]\/\.lastIndex;/);
+  assert.match(output, /if \(cond\) \+\+\/\[\/\/\]\/\.lastIndex;/);
+  assert.match(output, /var objDiv = \{ a: 1 \} \/ 2;/);
+  assert.match(output, /var fnDiv = function \(\) \{\} \/ 2;/);
+  assert.match(output, /if \(cond\) \{ foo\(\); \} \/\[\/\/\]\/\.test\(s\);/);
+  assert.match(output, /function decl\(\) \{\} \/\[\/\*\]\/\.test\(s\) && \/\[(\*\/)\]\/\.test\(s\);/);
+  assert.match(output, /class Decl \{\} \/\[\/\/\]\/\.test\(s\);/);
+  assert.match(output, /lbl: \{ foo\(\); \} \/\[\/\/\]\/\.test\(s\);/);
+  assert.match(output, /switch \(v\) \{ case 1: \{ foo\(\); \} \/\[\/\/\]\/\.test\(s\); \}/);
+  assert.match(output, /const arrowBlock = \(\) => \{\}\n\/\[\/\/\]\/\.test\(s\);/);
+
+  const es5BuildSnippet = [
+    '/**! @license MIT */',
+    'if (cond) /[//]/.test(s);',
+    'var x = 1;',
+    'if (cond) /[/*]/.test(s) && /[*/]/.test(s);',
+    'var n = ++/[//]/.lastIndex;',
+    'var y = 1;',
+    'var objDiv = { a: 1 } / 2; /* strip */',
+    'var fnDiv = function () {} / 2; /* strip */'
+  ].join('\n');
+
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pgmmv-build-f1-'));
+  try {
+    fs.writeFileSync(
+      path.join(tempRoot, 'package.json'),
+      JSON.stringify({ name: '@kidthales/f1-plugin', version: '0.2.0' }),
+      'utf8'
+    );
+    fs.writeFileSync(path.join(tempRoot, 'plugin.js'), es5BuildSnippet, 'utf8');
+
+    const outPath = await buildPlugin({ rootDir: tempRoot, cwd: tempRoot });
+    const built = fs.readFileSync(outPath, 'utf8');
+    assert.doesNotMatch(built, /\/\* strip \*\//);
+    assert.match(built, /if \(cond\) \/\[\/\/\]\/\.test\(s\);/);
+    assert.match(built, /if \(cond\) \/\[\/\*\]\/\.test\(s\) && \/\[(\*\/)\]\/\.test\(s\);/);
+    assert.match(built, /var n = \+\+\/\[\/\/\]\/\.lastIndex;/);
+    assert.match(built, /var objDiv = \{ a: 1 \} \/ 2;/);
+    assert.match(built, /var fnDiv = function \(\) \{\} \/ 2;/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('stripComments handles member-keyword for-of LHS, ASI-terminated concise async arrows, and object methods', () => {
+  const input = [
+    'for (obj.default of /[/*]/.exec(s) || []) {} /* strip */',
+    'for (obj.of of /[/*]/.exec(s) || []) {} /* strip */',
+    'const f = async (x) => x',
+    'var y = await / 2; /* strip */',
+    'async function outer() {',
+    '  var o = {',
+    '    m() {',
+    '      var await = 10;',
+    '      return await / 2; /* strip */',
+    '    }',
+    '  };',
+    '  return o;',
+    '}'
+  ].join('\n');
+
+  const output = stripComments(input);
+  assert.doesNotMatch(output, /\/\* strip \*\//);
+  assert.match(output, /for \(obj\.default of \/\[\/\*\]\/\.exec\(s\) \|\| \[\]\)/);
+  assert.match(output, /for \(obj\.of of \/\[\/\*\]\/\.exec\(s\) \|\| \[\]\)/);
+  assert.match(output, /var y = await \/ 2;/);
+  assert.match(output, /return await \/ 2;/);
+});
+
 test('eslint rejects non-ES5 syntax in plugin.js', () => {
   const result = spawnSync(process.execPath, [eslintBin, '--stdin', '--stdin-filename', 'plugin.js'], {
     cwd: ROOT,

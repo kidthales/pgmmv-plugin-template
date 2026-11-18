@@ -18,14 +18,148 @@ const NON_REGEX_PREDECESSOR_TOKENS = new Set([
   SyntaxKind.RegularExpressionLiteral,
   SyntaxKind.NoSubstitutionTemplateLiteral,
   SyntaxKind.TemplateTail,
-  SyntaxKind.CloseParenToken,
   SyntaxKind.CloseBracketToken,
-  SyntaxKind.PlusPlusToken,
-  SyntaxKind.MinusMinusToken,
   SyntaxKind.ThisKeyword,
+  SyntaxKind.SuperKeyword,
   SyntaxKind.TrueKeyword,
   SyntaxKind.FalseKeyword,
   SyntaxKind.NullKeyword
+]);
+
+const POSTFIX_UPDATE_TARGET_TOKENS = new Set([
+  SyntaxKind.Identifier,
+  SyntaxKind.PrivateIdentifier,
+  SyntaxKind.CloseBracketToken
+]);
+
+const STATEMENT_HEADER_KEYWORDS = new Set([
+  SyntaxKind.IfKeyword,
+  SyntaxKind.WhileKeyword,
+  SyntaxKind.ForKeyword,
+  SyntaxKind.WithKeyword
+]);
+
+const EXPRESSION_PRECEDING_TOKENS = new Set([
+  SyntaxKind.OpenParenToken,
+  SyntaxKind.OpenBracketToken,
+  SyntaxKind.CommaToken,
+  SyntaxKind.EqualsGreaterThanToken,
+  SyntaxKind.QuestionToken,
+  SyntaxKind.DotDotDotToken,
+  SyntaxKind.TemplateHead,
+  SyntaxKind.TemplateMiddle,
+  SyntaxKind.LessThanToken,
+  SyntaxKind.GreaterThanToken,
+  SyntaxKind.LessThanEqualsToken,
+  SyntaxKind.GreaterThanEqualsToken,
+  SyntaxKind.EqualsEqualsToken,
+  SyntaxKind.ExclamationEqualsToken,
+  SyntaxKind.EqualsEqualsEqualsToken,
+  SyntaxKind.ExclamationEqualsEqualsToken,
+  SyntaxKind.PlusToken,
+  SyntaxKind.MinusToken,
+  SyntaxKind.AsteriskToken,
+  SyntaxKind.AsteriskAsteriskToken,
+  SyntaxKind.SlashToken,
+  SyntaxKind.PercentToken,
+  SyntaxKind.LessThanLessThanToken,
+  SyntaxKind.GreaterThanGreaterThanToken,
+  SyntaxKind.GreaterThanGreaterThanGreaterThanToken,
+  SyntaxKind.AmpersandToken,
+  SyntaxKind.BarToken,
+  SyntaxKind.CaretToken,
+  SyntaxKind.ExclamationToken,
+  SyntaxKind.TildeToken,
+  SyntaxKind.AmpersandAmpersandToken,
+  SyntaxKind.BarBarToken,
+  SyntaxKind.QuestionQuestionToken,
+  SyntaxKind.EqualsToken,
+  SyntaxKind.PlusEqualsToken,
+  SyntaxKind.MinusEqualsToken,
+  SyntaxKind.AsteriskEqualsToken,
+  SyntaxKind.AsteriskAsteriskEqualsToken,
+  SyntaxKind.SlashEqualsToken,
+  SyntaxKind.PercentEqualsToken,
+  SyntaxKind.LessThanLessThanEqualsToken,
+  SyntaxKind.GreaterThanGreaterThanEqualsToken,
+  SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken,
+  SyntaxKind.AmpersandEqualsToken,
+  SyntaxKind.BarEqualsToken,
+  SyntaxKind.BarBarEqualsToken,
+  SyntaxKind.AmpersandAmpersandEqualsToken,
+  SyntaxKind.QuestionQuestionEqualsToken,
+  SyntaxKind.CaretEqualsToken
+]);
+
+const EXPRESSION_PRECEDING_KEYWORDS = new Set([
+  SyntaxKind.ThrowKeyword,
+  SyntaxKind.CaseKeyword,
+  SyntaxKind.InKeyword,
+  SyntaxKind.InstanceOfKeyword,
+  SyntaxKind.TypeOfKeyword,
+  SyntaxKind.VoidKeyword,
+  SyntaxKind.DeleteKeyword,
+  SyntaxKind.NewKeyword,
+  SyntaxKind.ExtendsKeyword
+]);
+
+const EXPRESSION_CONTINUATION_TOKENS = new Set([
+  SyntaxKind.DotToken,
+  SyntaxKind.QuestionDotToken,
+  SyntaxKind.OpenParenToken,
+  SyntaxKind.OpenBracketToken,
+  SyntaxKind.NoSubstitutionTemplateLiteral,
+  SyntaxKind.TemplateHead,
+  SyntaxKind.QuestionToken,
+  SyntaxKind.ColonToken,
+  SyntaxKind.CommaToken,
+  SyntaxKind.SemicolonToken,
+  SyntaxKind.CloseParenToken,
+  SyntaxKind.CloseBracketToken,
+  SyntaxKind.CloseBraceToken,
+  SyntaxKind.LessThanToken,
+  SyntaxKind.GreaterThanToken,
+  SyntaxKind.LessThanEqualsToken,
+  SyntaxKind.GreaterThanEqualsToken,
+  SyntaxKind.EqualsEqualsToken,
+  SyntaxKind.ExclamationEqualsToken,
+  SyntaxKind.EqualsEqualsEqualsToken,
+  SyntaxKind.ExclamationEqualsEqualsToken,
+  SyntaxKind.PlusToken,
+  SyntaxKind.MinusToken,
+  SyntaxKind.AsteriskToken,
+  SyntaxKind.AsteriskAsteriskToken,
+  SyntaxKind.SlashToken,
+  SyntaxKind.PercentToken,
+  SyntaxKind.LessThanLessThanToken,
+  SyntaxKind.GreaterThanGreaterThanToken,
+  SyntaxKind.GreaterThanGreaterThanGreaterThanToken,
+  SyntaxKind.AmpersandToken,
+  SyntaxKind.BarToken,
+  SyntaxKind.CaretToken,
+  SyntaxKind.AmpersandAmpersandToken,
+  SyntaxKind.BarBarToken,
+  SyntaxKind.QuestionQuestionToken,
+  SyntaxKind.EqualsToken,
+  SyntaxKind.PlusEqualsToken,
+  SyntaxKind.MinusEqualsToken,
+  SyntaxKind.AsteriskEqualsToken,
+  SyntaxKind.AsteriskAsteriskEqualsToken,
+  SyntaxKind.SlashEqualsToken,
+  SyntaxKind.PercentEqualsToken,
+  SyntaxKind.LessThanLessThanEqualsToken,
+  SyntaxKind.GreaterThanGreaterThanEqualsToken,
+  SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken,
+  SyntaxKind.AmpersandEqualsToken,
+  SyntaxKind.BarEqualsToken,
+  SyntaxKind.BarBarEqualsToken,
+  SyntaxKind.AmpersandAmpersandEqualsToken,
+  SyntaxKind.QuestionQuestionEqualsToken,
+  SyntaxKind.CaretEqualsToken,
+  SyntaxKind.InKeyword,
+  SyntaxKind.InstanceOfKeyword,
+  SyntaxKind.AsKeyword,
+  SyntaxKind.SatisfiesKeyword
 ]);
 
 const METHOD_START_BOUNDARY_TOKENS = new Set([
@@ -94,26 +228,39 @@ function isIdentifierCapableKeyword(token) {
 /**
  * Track token context to distinguish division (`/` and `/=`) from regex literal starts.
  *
- * @returns {{ isDivisionPredecessor: () => boolean, advance: (token: number) => void }}
+ * @returns {{ isDivisionPredecessor: () => boolean, advance: (token: number, hasLineTerminatorSinceLastToken?: boolean) => void }}
  */
 function createSlashPredecessorTracker() {
   let prevNonTriviaToken = SyntaxKind.Unknown;
   let lastNonTriviaToken = SyntaxKind.Unknown;
+  let prevWasMemberKeyword = false;
+  let lastWasMemberKeyword = false;
   let bracketDepth = 0;
   let nextScopeId = 1;
   let closedAsyncParen = false;
+  let lastClosedParenWasStatementHeader = false;
+  let lastClosedParenWasSwitch = false;
+  let lastClosedBraceWasExpr = false;
+  let lastUpdateWasPostfix = false;
+  let expectsExpression = false;
+  let asyncStartedInExpression = false;
+  let afterExportDefault = false;
 
-  /** @type {{ isFunction: boolean, isAsync: boolean, isGenerator: boolean, id: number }[]} */
+  /** @type {number[]} */
+  const delimiterTernaryStack = [0];
+  /** @type {{ type: 'block' | 'object' | 'class' | 'switch', isFunction: boolean, isAsync: boolean, isGenerator: boolean, isExprBrace: boolean, parenDepth: number, bracketDepth: number, id: number }[]} */
   const braceStack = [];
-  /** @type {{ isForHeader: boolean, seenSemicolon: boolean, precededByAsync: boolean, methodFn: { isAsync: boolean, isGenerator: boolean } | null }[]} */
+  /** @type {{ isForHeader: boolean, isStatementHeader: boolean, isSwitchHeader: boolean, seenSemicolon: boolean, precededByAsync: boolean, methodFn: { isAsync: boolean, isGenerator: boolean } | null }[]} */
   const parenStack = [];
   /** @type {{ isAsync: boolean, braceDepth: number, parenDepth: number, bracketDepth: number, id: number }[]} */
   const conciseArrowStack = [];
-  /** @type {{ isAsync: boolean, isGenerator: boolean, targetParenDepth: number, sawParams: boolean, awaitingBody: boolean }[]} */
+  /** @type {{ isAsync: boolean, isGenerator: boolean, isExpr: boolean, targetParenDepth: number, sawParams: boolean, awaitingBody: boolean }[]} */
   const pendingFnStack = [];
-  /** @type {{ isAsync: boolean, isGenerator: boolean, sawName: boolean, startBracketDepth: number } | null} */
+  /** @type {{ isExpr: boolean, targetParenDepth: number, targetBracketDepth: number }[]} */
+  const pendingClassStack = [];
+  /** @type {{ isAsync: boolean, isGenerator: boolean, sawName: boolean, startedWithAsync: boolean, canBeAccessor: boolean, startBracketDepth: number } | null} */
   let pendingMethodHeader = null;
-  /** @type {{ isAsync: boolean, isGenerator: boolean } | null} */
+  /** @type {{ isAsync: boolean, isGenerator: boolean, isExprBrace: boolean } | null} */
   let pendingNextBraceFn = null;
   /** @type {{ isAsync: boolean } | null} */
   let pendingArrow = null;
@@ -147,15 +294,51 @@ function createSlashPredecessorTracker() {
     }
   }
 
+  function popConciseArrowsAtDepth() {
+    while (conciseArrowStack.length > 0) {
+      const top = conciseArrowStack[conciseArrowStack.length - 1];
+      if (
+        braceStack.length === top.braceDepth &&
+        parenStack.length === top.parenDepth &&
+        bracketDepth === top.bracketDepth
+      ) {
+        conciseArrowStack.pop();
+      } else {
+        break;
+      }
+    }
+  }
+
+  function isValidForOfLhsEnd() {
+    return (
+      prevNonTriviaToken === SyntaxKind.Identifier ||
+      prevNonTriviaToken === SyntaxKind.PrivateIdentifier ||
+      prevNonTriviaToken === SyntaxKind.CloseBracketToken ||
+      prevNonTriviaToken === SyntaxKind.CloseBraceToken ||
+      prevNonTriviaToken === SyntaxKind.CloseParenToken ||
+      prevWasMemberKeyword ||
+      isIdentifierCapableKeyword(prevNonTriviaToken)
+    );
+  }
+
   function isDivisionPredecessor() {
     if (NON_REGEX_PREDECESSOR_TOKENS.has(lastNonTriviaToken)) {
       return true;
     }
 
-    if (
-      (prevNonTriviaToken === SyntaxKind.DotToken || prevNonTriviaToken === SyntaxKind.QuestionDotToken) &&
-      isKeywordToken(lastNonTriviaToken)
-    ) {
+    if (lastNonTriviaToken === SyntaxKind.CloseParenToken) {
+      return !lastClosedParenWasStatementHeader;
+    }
+
+    if (lastNonTriviaToken === SyntaxKind.CloseBraceToken) {
+      return lastClosedBraceWasExpr;
+    }
+
+    if (lastNonTriviaToken === SyntaxKind.PlusPlusToken || lastNonTriviaToken === SyntaxKind.MinusMinusToken) {
+      return lastUpdateWasPostfix;
+    }
+
+    if (lastWasMemberKeyword) {
       return true;
     }
 
@@ -174,22 +357,35 @@ function createSlashPredecessorTracker() {
     if (lastNonTriviaToken === SyntaxKind.OfKeyword) {
       const topParen = parenStack[parenStack.length - 1];
       const isForOfOperator =
-        Boolean(topParen && topParen.isForHeader && !topParen.seenSemicolon) &&
-        (prevNonTriviaToken === SyntaxKind.Identifier ||
-          prevNonTriviaToken === SyntaxKind.CloseBracketToken ||
-          prevNonTriviaToken === SyntaxKind.CloseBraceToken ||
-          prevNonTriviaToken === SyntaxKind.CloseParenToken ||
-          isIdentifierCapableKeyword(prevNonTriviaToken));
+        Boolean(topParen && topParen.isForHeader && !topParen.seenSemicolon) && isValidForOfLhsEnd();
       return !isForOfOperator;
     }
 
     return true;
   }
 
-  function advance(token) {
+  function advance(token, hasLineTerminatorSinceLastToken = false) {
+    const isMemberName =
+      lastNonTriviaToken === SyntaxKind.DotToken || lastNonTriviaToken === SyntaxKind.QuestionDotToken;
+    const asiBreakFromPrevious =
+      hasLineTerminatorSinceLastToken &&
+      !lastWasMemberKeyword &&
+      (lastNonTriviaToken === SyntaxKind.ReturnKeyword ||
+        (lastNonTriviaToken === SyntaxKind.YieldKeyword && currentFunctionScope().isGenerator));
+    const effectiveExpectsExpression = expectsExpression && !asiBreakFromPrevious;
+
+    if (
+      hasLineTerminatorSinceLastToken &&
+      conciseArrowStack.length > 0 &&
+      isDivisionPredecessor() &&
+      !EXPRESSION_CONTINUATION_TOKENS.has(token)
+    ) {
+      popConciseArrowsAtDepth();
+    }
+
     if (pendingArrow) {
       if (token === SyntaxKind.OpenBraceToken) {
-        pendingNextBraceFn = { isAsync: pendingArrow.isAsync, isGenerator: false };
+        pendingNextBraceFn = { isAsync: pendingArrow.isAsync, isGenerator: false, isExprBrace: false };
       } else {
         conciseArrowStack.push({
           isAsync: pendingArrow.isAsync,
@@ -205,7 +401,11 @@ function createSlashPredecessorTracker() {
     const topPendingFn = pendingFnStack[pendingFnStack.length - 1];
     if (topPendingFn && topPendingFn.awaitingBody) {
       if (token === SyntaxKind.OpenBraceToken) {
-        pendingNextBraceFn = { isAsync: topPendingFn.isAsync, isGenerator: topPendingFn.isGenerator };
+        pendingNextBraceFn = {
+          isAsync: topPendingFn.isAsync,
+          isGenerator: topPendingFn.isGenerator,
+          isExprBrace: topPendingFn.isExpr
+        };
       }
       pendingFnStack.pop();
     }
@@ -214,6 +414,12 @@ function createSlashPredecessorTracker() {
       pendingNextBraceFn = null;
     }
 
+    const topBrace = braceStack[braceStack.length - 1];
+    const inObjectOrClassBody =
+      Boolean(topBrace && (topBrace.type === 'object' || topBrace.type === 'class')) &&
+      parenStack.length === topBrace.parenDepth &&
+      bracketDepth === topBrace.bracketDepth;
+
     let methodFnForParen = null;
     if (pendingMethodHeader) {
       if (token === SyntaxKind.FunctionKeyword) {
@@ -221,16 +427,21 @@ function createSlashPredecessorTracker() {
       } else if (bracketDepth === pendingMethodHeader.startBracketDepth) {
         if (token === SyntaxKind.OpenBracketToken && !pendingMethodHeader.sawName) {
           pendingMethodHeader.sawName = true;
+          pendingMethodHeader.canBeAccessor = false;
         } else if (token === SyntaxKind.AsteriskToken && !pendingMethodHeader.sawName) {
           pendingMethodHeader.isGenerator = true;
-        } else if (token === SyntaxKind.OpenParenToken && pendingMethodHeader.sawName) {
+          pendingMethodHeader.canBeAccessor = false;
+        } else if (
+          token === SyntaxKind.OpenParenToken &&
+          (pendingMethodHeader.sawName || pendingMethodHeader.startedWithAsync)
+        ) {
           methodFnForParen = {
-            isAsync: pendingMethodHeader.isAsync,
+            isAsync: pendingMethodHeader.sawName ? pendingMethodHeader.isAsync : false,
             isGenerator: pendingMethodHeader.isGenerator
           };
           pendingMethodHeader = null;
         } else if (
-          !pendingMethodHeader.sawName &&
+          (!pendingMethodHeader.sawName || pendingMethodHeader.canBeAccessor) &&
           (token === SyntaxKind.Identifier ||
             token === SyntaxKind.PrivateIdentifier ||
             token === SyntaxKind.StringLiteral ||
@@ -238,6 +449,7 @@ function createSlashPredecessorTracker() {
             isKeywordToken(token))
         ) {
           pendingMethodHeader.sawName = true;
+          pendingMethodHeader.canBeAccessor = false;
         } else {
           pendingMethodHeader = null;
         }
@@ -251,6 +463,8 @@ function createSlashPredecessorTracker() {
           isAsync: true,
           isGenerator: false,
           sawName: false,
+          startedWithAsync: true,
+          canBeAccessor: false,
           startBracketDepth: bracketDepth
         };
       } else if (token === SyntaxKind.AsteriskToken) {
@@ -258,15 +472,58 @@ function createSlashPredecessorTracker() {
           isAsync: false,
           isGenerator: true,
           sawName: false,
+          startedWithAsync: false,
+          canBeAccessor: false,
           startBracketDepth: bracketDepth
         };
+      } else if (inObjectOrClassBody) {
+        if (token === SyntaxKind.GetKeyword || token === SyntaxKind.SetKeyword) {
+          pendingMethodHeader = {
+            isAsync: false,
+            isGenerator: false,
+            sawName: true,
+            startedWithAsync: false,
+            canBeAccessor: true,
+            startBracketDepth: bracketDepth
+          };
+        } else if (token === SyntaxKind.OpenBracketToken) {
+          pendingMethodHeader = {
+            isAsync: false,
+            isGenerator: false,
+            sawName: true,
+            startedWithAsync: false,
+            canBeAccessor: false,
+            startBracketDepth: bracketDepth
+          };
+        } else if (
+          (token === SyntaxKind.Identifier ||
+            token === SyntaxKind.PrivateIdentifier ||
+            token === SyntaxKind.StringLiteral ||
+            token === SyntaxKind.NumericLiteral ||
+            isKeywordToken(token)) &&
+          token !== SyntaxKind.FunctionKeyword &&
+          token !== SyntaxKind.ClassKeyword &&
+          !CLASS_METHOD_MODIFIER_TOKENS.has(token)
+        ) {
+          pendingMethodHeader = {
+            isAsync: false,
+            isGenerator: false,
+            sawName: true,
+            startedWithAsync: false,
+            canBeAccessor: false,
+            startBracketDepth: bracketDepth
+          };
+        }
       }
     }
 
-    if (token === SyntaxKind.FunctionKeyword) {
+    if (!isMemberName && token === SyntaxKind.FunctionKeyword) {
+      const fnExpectsExpr =
+        lastNonTriviaToken === SyntaxKind.AsyncKeyword ? asyncStartedInExpression : effectiveExpectsExpression;
       pendingFnStack.push({
-        isAsync: lastNonTriviaToken === SyntaxKind.AsyncKeyword,
+        isAsync: lastNonTriviaToken === SyntaxKind.AsyncKeyword && !lastWasMemberKeyword,
         isGenerator: false,
+        isExpr: fnExpectsExpr && !afterExportDefault,
         targetParenDepth: parenStack.length,
         sawParams: false,
         awaitingBody: false
@@ -274,15 +531,36 @@ function createSlashPredecessorTracker() {
     } else if (
       token === SyntaxKind.AsteriskToken &&
       lastNonTriviaToken === SyntaxKind.FunctionKeyword &&
+      !lastWasMemberKeyword &&
       pendingFnStack.length > 0
     ) {
       pendingFnStack[pendingFnStack.length - 1].isGenerator = true;
+    } else if (!isMemberName && token === SyntaxKind.ClassKeyword) {
+      pendingClassStack.push({
+        isExpr: effectiveExpectsExpression && !afterExportDefault,
+        targetParenDepth: parenStack.length,
+        targetBracketDepth: bracketDepth
+      });
+    }
+
+    if (token === SyntaxKind.TemplateHead) {
+      delimiterTernaryStack.push(0);
+    } else if (token === SyntaxKind.TemplateMiddle) {
+      delimiterTernaryStack[delimiterTernaryStack.length - 1] = 0;
+    } else if (token === SyntaxKind.TemplateTail) {
+      if (delimiterTernaryStack.length > 1) {
+        delimiterTernaryStack.pop();
+      }
     }
 
     if (token === SyntaxKind.OpenBracketToken) {
       bracketDepth += 1;
+      delimiterTernaryStack.push(0);
     } else if (token === SyntaxKind.CloseBracketToken) {
       bracketDepth = Math.max(0, bracketDepth - 1);
+      if (delimiterTernaryStack.length > 1) {
+        delimiterTernaryStack.pop();
+      }
       popClosedConciseArrows();
     } else if (token === SyntaxKind.OpenParenToken) {
       const activeFn = pendingFnStack[pendingFnStack.length - 1];
@@ -290,19 +568,34 @@ function createSlashPredecessorTracker() {
         activeFn.sawParams = true;
       }
       const isForHeader =
-        lastNonTriviaToken === SyntaxKind.ForKeyword ||
+        (lastNonTriviaToken === SyntaxKind.ForKeyword && !lastWasMemberKeyword) ||
         (lastNonTriviaToken === SyntaxKind.AwaitKeyword && prevNonTriviaToken === SyntaxKind.ForKeyword);
+      const isStatementHeader =
+        isForHeader || (STATEMENT_HEADER_KEYWORDS.has(lastNonTriviaToken) && !lastWasMemberKeyword);
+      const isSwitchHeader = lastNonTriviaToken === SyntaxKind.SwitchKeyword && !lastWasMemberKeyword;
       parenStack.push({
         isForHeader,
+        isStatementHeader,
+        isSwitchHeader,
         seenSemicolon: false,
-        precededByAsync: lastNonTriviaToken === SyntaxKind.AsyncKeyword,
+        precededByAsync: lastNonTriviaToken === SyntaxKind.AsyncKeyword && !lastWasMemberKeyword,
         methodFn: methodFnForParen
       });
+      delimiterTernaryStack.push(0);
     } else if (token === SyntaxKind.CloseParenToken) {
       const popped = parenStack.pop();
+      if (delimiterTernaryStack.length > 1) {
+        delimiterTernaryStack.pop();
+      }
       closedAsyncParen = Boolean(popped && popped.precededByAsync);
+      lastClosedParenWasStatementHeader = Boolean(popped && popped.isStatementHeader);
+      lastClosedParenWasSwitch = Boolean(popped && popped.isSwitchHeader);
       if (popped && popped.methodFn) {
-        pendingNextBraceFn = popped.methodFn;
+        pendingNextBraceFn = {
+          isAsync: popped.methodFn.isAsync,
+          isGenerator: popped.methodFn.isGenerator,
+          isExprBrace: false
+        };
       }
       const activeFn = pendingFnStack[pendingFnStack.length - 1];
       if (activeFn && activeFn.sawParams && !activeFn.awaitingBody && parenStack.length === activeFn.targetParenDepth) {
@@ -310,19 +603,77 @@ function createSlashPredecessorTracker() {
       }
       popClosedConciseArrows();
     } else if (token === SyntaxKind.OpenBraceToken) {
+      const topPendingClass = pendingClassStack[pendingClassStack.length - 1];
       if (pendingNextBraceFn) {
         braceStack.push({
+          type: 'block',
           isFunction: true,
           isAsync: pendingNextBraceFn.isAsync,
           isGenerator: pendingNextBraceFn.isGenerator,
+          isExprBrace: pendingNextBraceFn.isExprBrace,
+          parenDepth: parenStack.length,
+          bracketDepth,
           id: nextScopeId++
         });
         pendingNextBraceFn = null;
+      } else if (
+        topPendingClass &&
+        parenStack.length === topPendingClass.targetParenDepth &&
+        bracketDepth === topPendingClass.targetBracketDepth &&
+        lastNonTriviaToken !== SyntaxKind.ExtendsKeyword
+      ) {
+        pendingClassStack.pop();
+        braceStack.push({
+          type: 'class',
+          isFunction: false,
+          isAsync: false,
+          isGenerator: false,
+          isExprBrace: topPendingClass.isExpr,
+          parenDepth: parenStack.length,
+          bracketDepth,
+          id: 0
+        });
+      } else if (lastNonTriviaToken === SyntaxKind.CloseParenToken && lastClosedParenWasSwitch) {
+        braceStack.push({
+          type: 'switch',
+          isFunction: false,
+          isAsync: false,
+          isGenerator: false,
+          isExprBrace: false,
+          parenDepth: parenStack.length,
+          bracketDepth,
+          id: 0
+        });
+      } else if (effectiveExpectsExpression) {
+        braceStack.push({
+          type: 'object',
+          isFunction: false,
+          isAsync: false,
+          isGenerator: false,
+          isExprBrace: true,
+          parenDepth: parenStack.length,
+          bracketDepth,
+          id: 0
+        });
       } else {
-        braceStack.push({ isFunction: false, isAsync: false, isGenerator: false, id: 0 });
+        braceStack.push({
+          type: 'block',
+          isFunction: false,
+          isAsync: false,
+          isGenerator: false,
+          isExprBrace: false,
+          parenDepth: parenStack.length,
+          bracketDepth,
+          id: 0
+        });
       }
+      delimiterTernaryStack.push(0);
     } else if (token === SyntaxKind.CloseBraceToken) {
-      braceStack.pop();
+      const poppedBrace = braceStack.pop();
+      if (delimiterTernaryStack.length > 1) {
+        delimiterTernaryStack.pop();
+      }
+      lastClosedBraceWasExpr = Boolean(poppedBrace && poppedBrace.isExprBrace);
       popClosedConciseArrows();
     } else if (token === SyntaxKind.SemicolonToken) {
       const topParen = parenStack[parenStack.length - 1];
@@ -338,21 +689,94 @@ function createSlashPredecessorTracker() {
     }
 
     if (CONCISE_ARROW_TERMINATOR_TOKENS.has(token)) {
-      const topArrow = conciseArrowStack[conciseArrowStack.length - 1];
-      if (
-        topArrow &&
-        braceStack.length === topArrow.braceDepth &&
-        parenStack.length === topArrow.parenDepth &&
-        bracketDepth === topArrow.bracketDepth
-      ) {
-        conciseArrowStack.pop();
-      }
+      popConciseArrowsAtDepth();
+    }
+
+    if (token === SyntaxKind.PlusPlusToken || token === SyntaxKind.MinusMinusToken) {
+      const canBePostfixTarget =
+        POSTFIX_UPDATE_TARGET_TOKENS.has(lastNonTriviaToken) ||
+        (lastNonTriviaToken === SyntaxKind.CloseParenToken && !lastClosedParenWasStatementHeader) ||
+        lastWasMemberKeyword ||
+        (isIdentifierCapableKeyword(lastNonTriviaToken) && isDivisionPredecessor());
+      lastUpdateWasPostfix = !hasLineTerminatorSinceLastToken && canBePostfixTarget;
+    } else {
+      lastUpdateWasPostfix = false;
     }
 
     if (token !== SyntaxKind.CloseParenToken) {
       closedAsyncParen = false;
+      lastClosedParenWasStatementHeader = false;
+      lastClosedParenWasSwitch = false;
+    }
+    if (token !== SyntaxKind.CloseBraceToken) {
+      lastClosedBraceWasExpr = false;
     }
 
+    // Update expectsExpression for the token that follows `token`.
+    if (token === SyntaxKind.AsyncKeyword && !isMemberName) {
+      asyncStartedInExpression = effectiveExpectsExpression && !afterExportDefault;
+    } else if (token !== SyntaxKind.AsyncKeyword) {
+      asyncStartedInExpression = false;
+    }
+
+    const nextAfterExportDefault =
+      token === SyntaxKind.DefaultKeyword && lastNonTriviaToken === SyntaxKind.ExportKeyword && !lastWasMemberKeyword;
+
+    if (token === SyntaxKind.QuestionToken) {
+      delimiterTernaryStack[delimiterTernaryStack.length - 1] += 1;
+      expectsExpression = true;
+    } else if (token === SyntaxKind.ColonToken) {
+      const topIdx = delimiterTernaryStack.length - 1;
+      if (delimiterTernaryStack[topIdx] > 0) {
+        delimiterTernaryStack[topIdx] -= 1;
+        expectsExpression = true;
+      } else {
+        const currentTopBrace = braceStack[braceStack.length - 1];
+        expectsExpression = Boolean(
+          currentTopBrace &&
+          currentTopBrace.type === 'object' &&
+          parenStack.length === currentTopBrace.parenDepth &&
+          bracketDepth === currentTopBrace.bracketDepth
+        );
+      }
+    } else if (token === SyntaxKind.SemicolonToken) {
+      const topParen = parenStack[parenStack.length - 1];
+      expectsExpression = Boolean(topParen && topParen.isForHeader);
+    } else if (EXPRESSION_PRECEDING_TOKENS.has(token)) {
+      expectsExpression = true;
+    } else if (token === SyntaxKind.PlusPlusToken || token === SyntaxKind.MinusMinusToken) {
+      expectsExpression = !lastUpdateWasPostfix;
+    } else if (!isMemberName && isKeywordToken(token)) {
+      if (token === SyntaxKind.ReturnKeyword || EXPRESSION_PRECEDING_KEYWORDS.has(token)) {
+        expectsExpression = true;
+      } else if (token === SyntaxKind.YieldKeyword) {
+        expectsExpression = currentFunctionScope().isGenerator;
+      } else if (token === SyntaxKind.AwaitKeyword) {
+        expectsExpression = currentFunctionScope().isAsync;
+      } else if (token === SyntaxKind.OfKeyword) {
+        const topParen = parenStack[parenStack.length - 1];
+        const isForOfOperator =
+          Boolean(topParen && topParen.isForHeader && !topParen.seenSemicolon) &&
+          (lastNonTriviaToken === SyntaxKind.Identifier ||
+            lastNonTriviaToken === SyntaxKind.PrivateIdentifier ||
+            lastNonTriviaToken === SyntaxKind.CloseBracketToken ||
+            lastNonTriviaToken === SyntaxKind.CloseBraceToken ||
+            lastNonTriviaToken === SyntaxKind.CloseParenToken ||
+            lastWasMemberKeyword ||
+            isIdentifierCapableKeyword(lastNonTriviaToken));
+        expectsExpression = isForOfOperator;
+      } else if (nextAfterExportDefault) {
+        expectsExpression = true;
+      } else {
+        expectsExpression = false;
+      }
+    } else {
+      expectsExpression = false;
+    }
+
+    afterExportDefault = nextAfterExportDefault;
+    prevWasMemberKeyword = lastWasMemberKeyword;
+    lastWasMemberKeyword = isMemberName && isKeywordToken(token);
     prevNonTriviaToken = lastNonTriviaToken;
     lastNonTriviaToken = token;
   }
@@ -458,6 +882,7 @@ export function stripComments(source) {
   const templateBraceDepths = [];
   const tracker = createSlashPredecessorTracker();
   let lastEnd = 0;
+  let hasLineTerminatorSinceLastToken = false;
 
   for (let token = scanner.scan(); token !== SyntaxKind.EndOfFile; token = scanner.scan()) {
     if (
@@ -483,8 +908,12 @@ export function stripComments(source) {
 
     const tokenStart = scanner.getTokenStart();
     if (tokenStart > lastEnd) {
+      const skipped = source.slice(lastEnd, tokenStart);
+      if (LINE_TERMINATOR_RE.test(skipped)) {
+        hasLineTerminatorSinceLastToken = true;
+      }
       // Preserve scanner-skipped line terminators (e.g. U+2028 / U+2029 under ES5.1 §7.3).
-      chunks.push(source.slice(lastEnd, tokenStart));
+      chunks.push(skipped);
     }
 
     const text = scanner.getTokenText();
@@ -495,6 +924,9 @@ export function stripComments(source) {
     }
 
     if (token === SyntaxKind.MultiLineCommentTrivia) {
+      if (LINE_TERMINATOR_RE.test(text)) {
+        hasLineTerminatorSinceLastToken = true;
+      }
       const isBanner = text.startsWith('/**!') || text.startsWith('/*!');
       if (isBanner) {
         chunks.push(text);
@@ -504,8 +936,13 @@ export function stripComments(source) {
       continue;
     }
 
+    if (token === SyntaxKind.NewLineTrivia) {
+      hasLineTerminatorSinceLastToken = true;
+    }
+
     if (!isTrivia(token)) {
-      tracker.advance(token);
+      tracker.advance(token, hasLineTerminatorSinceLastToken);
+      hasLineTerminatorSinceLastToken = false;
     }
 
     chunks.push(text);
