@@ -2,15 +2,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { assertSafeOutputPath, buildPlugin, stripComments } from '../scripts/build.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const pluginPath = path.join(ROOT, 'plugin.js');
 const pluginSource = fs.readFileSync(pluginPath, 'utf8');
+const buildScript = path.join(ROOT, 'scripts', 'build.mjs');
 const eslintBin = path.join(ROOT, 'node_modules', 'eslint', 'bin', 'eslint.js');
 const tscBin = path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
 
@@ -123,6 +126,173 @@ test('setParamValue with an empty array produces zero Agtk.log calls', () => {
 
   plugin.setParamValue([]);
   assert.deepEqual(logs, []);
+});
+
+test('setParamValue ignores nullish, primitive, and array-like non-array inputs outside the editor', () => {
+  const logs = [];
+  const plugin = loadPlugin({
+    Agtk: {
+      log(message) {
+        logs.push(message);
+      }
+    }
+  });
+
+  for (const boundary of [null, undefined, 0, 'invalid', true, {}, { length: 1, 0: { id: 1, value: 'x' } }]) {
+    assert.doesNotThrow(() => {
+      plugin.setParamValue(boundary);
+    });
+  }
+
+  assert.deepEqual(logs, []);
+});
+
+test('scripts/build.mjs builds plugin.js preserving /**! banner and stripping JSDoc/line comments', () => {
+  const distDir = path.join(ROOT, 'dist');
+  fs.mkdirSync(distDir, { recursive: true });
+  const distTmpDir = fs.mkdtempSync(path.join(distDir, '.tmp-build-out-'));
+  try {
+    const outFile = path.join(distTmpDir, 'bundle.js');
+    const result = spawnSync(process.execPath, [buildScript, outFile], {
+      cwd: ROOT,
+      encoding: 'utf8'
+    });
+
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    const built = fs.readFileSync(outFile, 'utf8');
+    assert.match(built, /^\/\*\*![\s\S]*@version 0\.2\.0[\s\S]*\*\//);
+    assert.doesNotMatch(built, /\/\/\/ <reference/);
+    assert.doesNotMatch(built, /noinspection/);
+    assert.doesNotMatch(built, /@param/);
+
+    const plugin = vm.runInNewContext(built, {}, { filename: 'bundle.js' });
+    assert.equal(plugin.getInfo('name'), 'PGMMV Plugin Template');
+    assert.equal(plugin.execLinkCondition(0, [], 1, 1, 1, 0), false);
+  } finally {
+    fs.rmSync(distTmpDir, { recursive: true, force: true });
+  }
+});
+
+test('buildPlugin emits default unscoped dist filename from package.json metadata', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pgmmv-build-fixture-'));
+  try {
+    fs.writeFileSync(
+      path.join(tempRoot, 'package.json'),
+      JSON.stringify({ name: '@kidthales/sample-plugin', version: '1.2.3' }),
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(tempRoot, 'plugin.js'),
+      '/**!\n * @license MIT\n */\n// strip me\n(function () { return {}; })();\n',
+      'utf8'
+    );
+
+    const outPath = await buildPlugin({ rootDir: tempRoot, cwd: tempRoot });
+    assert.equal(path.basename(outPath), 'sample-plugin-v1.2.3.js');
+    assert.equal(path.dirname(outPath), path.join(tempRoot, 'dist'));
+
+    const built = fs.readFileSync(outPath, 'utf8');
+    assert.match(built, /@license MIT/);
+    assert.doesNotMatch(built, /strip me/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('scripts/build.mjs enforces self-overwrite and dist/ containment guards including symlinks', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pgmmv-build-guards-'));
+  const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pgmmv-build-outside-'));
+  try {
+    const inputPath = path.join(tempRoot, 'plugin.js');
+    const distDir = path.join(tempRoot, 'dist');
+    fs.writeFileSync(inputPath, 'var x = 1;\n', 'utf8');
+    fs.mkdirSync(distDir, { recursive: true });
+
+    for (const target of [inputPath, path.join(distDir, '..', 'plugin.js')]) {
+      assert.throws(
+        () => assertSafeOutputPath({ rootDir: tempRoot, inputPath, distDir, outputPath: target }),
+        /Refusing to overwrite input file/
+      );
+    }
+
+    for (const target of [
+      distDir,
+      path.join(distDir, '.'),
+      path.join(tempRoot, 'outside.js'),
+      path.join(outsideDir, 'escape.js'),
+      path.join(distDir, '..', 'outside.js')
+    ]) {
+      assert.throws(
+        () => assertSafeOutputPath({ rootDir: tempRoot, inputPath, distDir, outputPath: target }),
+        /Refusing to write outside dist directory/
+      );
+    }
+
+    const symlinkType = process.platform === 'win32' ? 'junction' : 'dir';
+    const rootAliasInDist = path.join(distDir, 'root-alias');
+    fs.symlinkSync(tempRoot, rootAliasInDist, symlinkType);
+    assert.throws(
+      () =>
+        assertSafeOutputPath({
+          rootDir: tempRoot,
+          inputPath,
+          distDir,
+          outputPath: path.join(rootAliasInDist, 'plugin.js')
+        }),
+      /Refusing to overwrite input file/
+    );
+
+    const escapeLinkInDist = path.join(distDir, 'escape-link');
+    fs.symlinkSync(outsideDir, escapeLinkInDist, symlinkType);
+    assert.throws(
+      () =>
+        assertSafeOutputPath({
+          rootDir: tempRoot,
+          inputPath,
+          distDir,
+          outputPath: path.join(escapeLinkInDist, 'out.js')
+        }),
+      /Refusing to write outside dist directory/
+    );
+
+    const cliFail = spawnSync(process.execPath, [buildScript, '../outside.js'], {
+      cwd: ROOT,
+      encoding: 'utf8'
+    });
+    assert.notEqual(cliFail.status, 0);
+    assert.match(cliFail.stderr + cliFail.stdout, /Refusing to write outside dist directory/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+    fs.rmSync(outsideDir, { recursive: true, force: true });
+  }
+});
+
+test('stripComments preserves ES5.1 §7.3 LineTerminator boundaries across CR, LS, and PS', () => {
+  assert.equal(stripComments('return/*\r*/1;'), 'return\n1;');
+  assert.equal(stripComments('return/*\u2028*/1;'), 'return\n1;');
+  assert.equal(stripComments('return/*\u2029*/1;'), 'return\n1;');
+  assert.equal(stripComments('var a/*inline*/=1;'), 'var a =1;');
+  assert.equal(stripComments('var a = 1; // c\u2028var b = 2;'), 'var a = 1; \u2028var b = 2;');
+  assert.equal(stripComments('var a = 1;\u2029'), 'var a = 1;\u2029');
+});
+
+test('stripComments rescans template literal braces and regex literals without stripping content', () => {
+  const input = [
+    'var a = `head ${ { k: 1 /* strip */ } } /* keep */ // keep`;',
+    'var b = `m1 ${1} /* keep1 */ ${ `nested ${2} /* keep2 */` } // keep3`;',
+    'var c = `div ${1}` / 2; // strip',
+    'var r = /foo\\/\\*bar\\*\\/baz/g; /* strip */'
+  ].join('\n');
+
+  const output = stripComments(input);
+  assert.match(output, /\/\* keep \*\/ \/\/ keep`/);
+  assert.match(output, /\/\* keep1 \*\//);
+  assert.match(output, /\/\* keep2 \*\//);
+  assert.match(output, /\/\/ keep3`/);
+  assert.match(output, /var c = `div \$\{1\}` \/ 2;/);
+  assert.match(output, /var r = \/foo\\\/\\\*bar\\\*\\\/baz\/g;/);
+  assert.doesNotMatch(output, /\/\* strip \*\//);
+  assert.doesNotMatch(output, /\/\/ strip/);
 });
 
 test('eslint rejects non-ES5 syntax in plugin.js', () => {
