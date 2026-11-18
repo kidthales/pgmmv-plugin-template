@@ -546,6 +546,68 @@ test('stripComments handles member-keyword for-of LHS, ASI-terminated concise as
   assert.match(output, /return await \/ 2;/);
 });
 
+test('stripComments and buildPlugin preserve regexes and divisions across nested for-headers, async blocks, template interpolations, and adjacent JSDoc banners', async () => {
+  const input = [
+    '/**!',
+    ' * @license MIT',
+    ' *//**',
+    ' * @description strip me',
+    ' */',
+    'for (var f = function () { s = "a"; { s = "b"; } /[/*]/.test(s) && /[*/]/.test(s); }; false; ) {}',
+    'for (var g = function () { s = "a"; { s = "b"; } /[//]/.test(s);',
+    'var z = 1; }; false; ) {}',
+    'for (let [x = function () { a(); }()] of /[/*]/.exec(s) && /[*/]/.exec(s)) {}',
+    'async function outer() {',
+    '  var async = function () {};',
+    '  async()',
+    '  { return await /[/*]/.test(s) && /[*/]/.test(s); }',
+    '}',
+    'var await = 10;',
+    "var x = `${async () => 1}` && await / 2; // don't crash"
+  ].join('\n');
+
+  const output = stripComments(input);
+  assert.match(output, /@license MIT/);
+  assert.doesNotMatch(output, /@description strip me/);
+  assert.doesNotMatch(output, /don't crash/);
+  assert.match(output, /\{ s = "b"; \} \/\[\/\*\]\/\.test\(s\) && \/\[(\*\/)\]\/\.test\(s\);/);
+  assert.match(output, /\{ s = "b"; \} \/\[\/\/\]\/\.test\(s\);\nvar z = 1;/);
+  assert.match(output, /of \/\[\/\*\]\/\.exec\(s\) && \/\[(\*\/)\]\/\.exec\(s\)/);
+  assert.match(output, /\{ return await \/\[\/\*\]\/\.test\(s\) && \/\[(\*\/)\]\/\.test\(s\); \}/);
+  assert.match(output, /var x = `\$\{async \(\) => 1\}` && await \/ 2;/);
+
+  const es5BuildSnippet = [
+    '/**!',
+    ' * @license MIT',
+    ' *//**',
+    ' * @description strip me',
+    ' */',
+    'for (var f = function () { s = "a"; { s = "b"; } /[/*]/.test(s) && /[*/]/.test(s); }; false; ) {}',
+    'for (var g = function () { s = "a"; { s = "b"; } /[//]/.test(s);',
+    'var z = 1; }; false; ) {}'
+  ].join('\n');
+
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pgmmv-build-vectors-'));
+  try {
+    fs.writeFileSync(
+      path.join(tempRoot, 'package.json'),
+      JSON.stringify({ name: '@kidthales/vectors-plugin', version: '0.2.0' }),
+      'utf8'
+    );
+    fs.writeFileSync(path.join(tempRoot, 'plugin.js'), es5BuildSnippet, 'utf8');
+
+    const outPath = await buildPlugin({ rootDir: tempRoot, cwd: tempRoot });
+    const built = fs.readFileSync(outPath, 'utf8');
+    assert.match(built, /@license MIT/);
+    assert.doesNotMatch(built, /@description strip me/);
+    assert.match(built, /\/\[\/\*\]\/\.test\(s\) && \/\[(\*\/)\]\/\.test\(s\)/);
+    assert.match(built, /\/\[\/\/\]\/\.test\(s\);/);
+    assert.match(built, /var z = 1;/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('eslint rejects non-ES5 syntax in plugin.js', () => {
   const result = spawnSync(process.execPath, [eslintBin, '--stdin', '--stdin-filename', 'plugin.js'], {
     cwd: ROOT,
