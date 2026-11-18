@@ -1,5 +1,12 @@
-// noinspection ES6ConvertVarToLetConst
+/**!
+ * @file PGMMV Plugin Template
+ * @author Tristan Bonsor <kidthales@agogpixel.com>
+ * @copyright 2026 Tristan Bonsor
+ * @license {@link https://opensource.org/licenses/MIT MIT License}
+ * @version 0.2.0
+ */
 /// <reference types="@kidthales/pgmmv-types/pgmmv.d.ts" />
+// noinspection ES6ConvertVarToLetConst
 (function () {
   // noinspection UnnecessaryLocalVariableJS
   /**
@@ -54,11 +61,15 @@
        * @param {import("@kidthales/pgmmv-types").AgtkParameterValue[]} paramValue
        */
       setParamValue: function (paramValue) {
-        if (isEditor()) {
+        if (isEditor() || !Array.isArray(paramValue)) {
           return;
         }
 
         for (var i = 0; i < paramValue.length; ++i) {
+          if (!paramValue[i] || typeof paramValue[i] !== 'object') {
+            continue;
+          }
+
           Agtk.log('Parameter ' + paramValue[i].id + ' = ' + paramValue[i].value);
         }
       },

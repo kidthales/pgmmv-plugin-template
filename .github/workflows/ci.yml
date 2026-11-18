@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   lint:
-    name: Lint & Typecheck
+    name: Lint, Typecheck, Test & Build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -41,3 +41,6 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Run build
+        run: npm run build
