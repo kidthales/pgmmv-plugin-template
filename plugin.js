@@ -66,6 +66,10 @@
         }
 
         for (var i = 0; i < paramValue.length; ++i) {
+          if (!paramValue[i] || typeof paramValue[i] !== 'object') {
+            continue;
+          }
+
           Agtk.log('Parameter ' + paramValue[i].id + ' = ' + paramValue[i].value);
         }
       },

@@ -7,7 +7,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
-import { assertSafeOutputPath, buildPlugin, stripComments } from '../scripts/build.mjs';
+import { assertSafeOutputPath, buildPlugin, resolveRealPath, stripComments } from '../scripts/build.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -147,6 +147,26 @@ test('setParamValue ignores nullish, primitive, and array-like non-array inputs 
   assert.deepEqual(logs, []);
 });
 
+test('setParamValue skips sparse, nullish, and primitive array entries without throwing', () => {
+  const logs = [];
+  const plugin = loadPlugin({
+    Agtk: {
+      log(message) {
+        logs.push(message);
+      }
+    }
+  });
+
+  // eslint-disable-next-line no-sparse-arrays
+  const sparse = [, { id: 3, value: 'sparse-ok' }];
+  assert.doesNotThrow(() => {
+    plugin.setParamValue([null, undefined, 42, 'bad', true, { id: 1, value: 'ok' }]);
+    plugin.setParamValue(sparse);
+  });
+
+  assert.deepEqual(logs, ['Parameter 1 = ok', 'Parameter 3 = sparse-ok']);
+});
+
 test('scripts/build.mjs builds plugin.js preserving /**! banner and stripping JSDoc/line comments', () => {
   const distDir = path.join(ROOT, 'dist');
   fs.mkdirSync(distDir, { recursive: true });
@@ -261,6 +281,42 @@ test('scripts/build.mjs enforces self-overwrite and dist/ containment guards inc
     });
     assert.notEqual(cliFail.status, 0);
     assert.match(cliFail.stderr + cliFail.stdout, /Refusing to write outside dist directory/);
+
+    const danglingLink = path.join(distDir, 'dangling-dir');
+    fs.symlinkSync(path.join(outsideDir, 'missing-target'), danglingLink, symlinkType);
+    assert.throws(() => resolveRealPath(danglingLink), { code: 'ENOENT' });
+    assert.throws(() => resolveRealPath(path.join(danglingLink, 'nested', 'out.js')), { code: 'ENOENT' });
+    assert.throws(
+      () =>
+        assertSafeOutputPath({
+          rootDir: tempRoot,
+          inputPath,
+          distDir,
+          outputPath: path.join(danglingLink, 'out.js')
+        }),
+      { code: 'ENOENT' }
+    );
+
+    const symlinkDistRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pgmmv-build-symdist-'));
+    try {
+      const symDistInput = path.join(symlinkDistRoot, 'plugin.js');
+      const symDistDir = path.join(symlinkDistRoot, 'dist');
+      fs.writeFileSync(symDistInput, 'var x = 1;\n', 'utf8');
+      fs.symlinkSync(outsideDir, symDistDir, symlinkType);
+
+      assert.throws(
+        () =>
+          assertSafeOutputPath({
+            rootDir: symlinkDistRoot,
+            inputPath: symDistInput,
+            distDir: symDistDir,
+            outputPath: path.join(symDistDir, 'out.js')
+          }),
+        /Refusing to write through non-canonical dist directory/
+      );
+    } finally {
+      fs.rmSync(symlinkDistRoot, { recursive: true, force: true });
+    }
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
     fs.rmSync(outsideDir, { recursive: true, force: true });
@@ -293,6 +349,84 @@ test('stripComments rescans template literal braces and regex literals without s
   assert.match(output, /var r = \/foo\\\/\\\*bar\\\*\\\/baz\/g;/);
   assert.doesNotMatch(output, /\/\* strip \*\//);
   assert.doesNotMatch(output, /\/\/ strip/);
+});
+
+test('stripComments and buildPlugin handle division after contextual/future-reserved identifiers and member keywords', async () => {
+  const snippet = [
+    '/**! @license MIT */',
+    'var type = 10, out = 20, from = 4, set = 6, get = 8, of = 12, await = 14, yield = 16;',
+    'var cfg = { default: 8, return: 10, await: 12 };',
+    "var half = type / 2; // don't clip",
+    "out /= 2; // don't break",
+    "var mid = cfg.default / 2; // don't expose midpoint",
+    "var opt = cfg?.return / 2; // don't break optional chaining",
+    "var optAwait = cfg?.await / 2; // don't break member await",
+    "var ratio = from / 2 + set / 2 + get / 2 + of / 2 + await / 2 + yield / 2; // don't leak",
+    "var undef = undefined / 2; // don't break undefined",
+    "for (var i = of / 2; i < 1; i++) {} // don't break for-init of"
+  ].join('\n');
+
+  const stripped = stripComments(snippet);
+  assert.doesNotMatch(stripped, /don't/);
+  assert.match(stripped, /var half = type \/ 2;/);
+  assert.match(stripped, /out \/= 2;/);
+  assert.match(stripped, /var mid = cfg\.default \/ 2;/);
+  assert.match(stripped, /var opt = cfg\?\.return \/ 2;/);
+
+  const es5BuildSnippet = [
+    '/**! @license MIT */',
+    'var type = 10, out = 20, from = 4, of = 12, await = 14, yield = 16;',
+    'var cfg = { default: 8, return: 10 };',
+    "var half = type / 2; // don't clip",
+    "out /= 2; // don't break",
+    "var mid = cfg.default / 2; // don't expose midpoint",
+    "var ratio = from / 2 + of / 2 + await / 2 + yield / 2; // don't leak",
+    "var ret = cfg.return / 2; // don't fail"
+  ].join('\n');
+
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pgmmv-build-div-'));
+  try {
+    fs.writeFileSync(
+      path.join(tempRoot, 'package.json'),
+      JSON.stringify({ name: '@kidthales/div-plugin', version: '0.2.0' }),
+      'utf8'
+    );
+    fs.writeFileSync(path.join(tempRoot, 'plugin.js'), es5BuildSnippet, 'utf8');
+
+    const outPath = await buildPlugin({ rootDir: tempRoot, cwd: tempRoot });
+    const built = fs.readFileSync(outPath, 'utf8');
+    assert.doesNotMatch(built, /don't/);
+    assert.match(built, /type \/ 2/);
+    assert.match(built, /out \/= 2/);
+    assert.match(built, /cfg\.default \/ 2/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('stripComments still rescans regex literals after for-of, async await, and generator yield', () => {
+  const input = [
+    'for (var x of /a\\/\\*keep\\*\\//g) {} /* strip */',
+    'async function f() { return await /b\\/\\*keep\\*\\//g; /* strip */ }',
+    'const g = async (x) => await /c\\/\\*keep\\*\\//g; /* strip */',
+    'function* gen() { yield /d\\/\\*keep\\*\\//g; /* strip */ }',
+    'async function outer() {',
+    '  function inner() {',
+    '    var await = 10;',
+    "    return await / 2; // don't leak",
+    '  }',
+    '  return inner() && (await /e\\/\\*keep\\*\\//g); /* strip */',
+    '}'
+  ].join('\n');
+
+  const output = stripComments(input);
+  assert.match(output, /\/a\\\/\\\*keep\\\*\\\/\/g/);
+  assert.match(output, /\/b\\\/\\\*keep\\\*\\\/\/g/);
+  assert.match(output, /\/c\\\/\\\*keep\\\*\\\/\/g/);
+  assert.match(output, /\/d\\\/\\\*keep\\\*\\\/\/g/);
+  assert.match(output, /\/e\\\/\\\*keep\\\*\\\/\/g/);
+  assert.doesNotMatch(output, /\/\* strip \*\//);
+  assert.doesNotMatch(output, /don't leak/);
 });
 
 test('eslint rejects non-ES5 syntax in plugin.js', () => {
